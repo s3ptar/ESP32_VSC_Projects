@@ -1,43 +1,4 @@
-
-/***********************************************************************
-*! \file:                   main.cpp
-*  \projekt:                ESP 32 Clock with EPaper
-*  \created on:             2024 02 8
-*  \author:                 R. Gräber
-*  \version:                0
-*  \history:                -
-*  \brief                   Waceshare cloned from Waveshare examples
-***********************************************************************/
-
-/***********************************************************************
-* Includes
-***********************************************************************/
-#include "DEV_Config.h"
-#include "EPD.h"
-#include "GUI_Paint.h"
-#include "imagedata.h"
-#include <stdlib.h>
-
-/***********************************************************************
-* Informations
-***********************************************************************/
-
-/***********************************************************************
-* Declarations
-***********************************************************************/
-/***********************************************************************
-*! \fn          void setup() 
-*  \brief       The setup function is called once at startup of the sketch
-*  \param       none
-*  \exception   none
-*  \return      none
-***********************************************************************/
-void setup()
-{
-  printf("EPD_2IN9b_V3_test Demo\r\n");
-  DEV_Module_Init();
-
-    printf("e-Paper Init and Clear...\r\n");
+printf("e-Paper Init and Clear...\r\n");
     EPD_2IN9B_V3_Init();
     EPD_2IN9B_V3_Clear();
     DEV_Delay_ms(500);
@@ -113,16 +74,3 @@ void setup()
     free(RYImage);
     BlackImage = NULL;
     RYImage = NULL;
-}
-
-/***********************************************************************
-*! \fn          void setup() 
-*  \brief       The setup function is called once at startup of the sketch
-*  \param       none
-*  \exception   none
-*  \return      none
-***********************************************************************/
-void loop()
-{
-  // 
-}
