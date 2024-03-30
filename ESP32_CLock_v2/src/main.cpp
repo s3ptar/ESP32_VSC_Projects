@@ -27,6 +27,12 @@
 #include "secrets.h"
 #include <WiFi.h>
 #include "time.h"
+#include <Arduino.h>
+#include "FS.h"
+#include <LittleFS.h>
+#include <ArduinoJson.h>
+
+#include <filesystem.h>
 
 /***********************************************************************
 * Informations
@@ -34,6 +40,7 @@
 //https://www.waveshare.com/wiki/E-Paper_ESP32_Driver_Board
 //https://files.waveshare.com/upload/8/80/E-Paper_ESP32_Driver_Board_Schematic.pdf
 //https://microcontrollerslab.com/esp32-ds1307-real-time-clock-rtc-oled/
+//;board_build.filesystem = littlefs
 //https://www.bing.com/images/search?view=detailV2&ccid=1nP4%2fWBC&id=B2BCFF8B182D76770AB4812E6973054BC467AAC3&thid=OIP.1nP4_WBClfQR0vL8HcnsNwHaES&mediaurl=https%3a%2f%2ffile.vishnumaiea.in%2fdownload%2fesp32%2fESP32-Devkit-Pinout-Rev-12-9600p.png&cdnurl=https%3a%2f%2fth.bing.com%2fth%2fid%2fR.d673f8fd604295f411d2f2fc1dc9ec37%3frik%3dw6pnxEsFc2kugQ%26pid%3dImgRaw%26r%3d0&exph=5569&expw=9600&q=esp32+pinout&simid=608015860527427334&FORM=IRPRST&ck=46B3AD8587E3E7AF133BC4CA002C2833&selectedIndex=0&itb=0&idpp=overlayview&ajaxhist=0&ajaxserp=0
 /***********************************************************************
 * Declarations
@@ -55,7 +62,7 @@ const int   daylightOffset_sec = 0;
 /***********************************************************************
 * Global Variable
 ***********************************************************************/
-
+bool filesystemOK = false;
 
 /***********************************************************************
 * local Variable
@@ -70,20 +77,58 @@ void colorWipe(uint32_t c, uint16_t wait) {
   }
 }
 
+
+/***********************************************************************
+*! \fn          int main(){
+*  \brief       start up function
+*  \param       none
+*  \exception   none
+*  \return      none
+***********************************************************************/
+void print_multiple(const char* sign_to_print,  uint8_t num_of_print){
+    while(num_of_print--)
+        Serial.print(sign_to_print);
+}
+
+
 /* Entry point ----------------------------------------------------------------*/
 void setup()
 {
-    printf("ESP32 Clock with EPaper\r\n");
+    Serial.println("ESP32 Clock with EPaper");
 
     DEV_Module_Init();
+    Serial.println("----------------------------------------");
+    Serial.println("           Check File System            ");
+    Serial.println("----------------------------------------");
+    if (!LittleFS.begin(false /* false: Do not format if mount failed */)) {
+        Serial.println("Failed to mount LittleFS");
+        if (!LittleFS.begin(true /* true: format */)) {
+            Serial.println("Failed to format LittleFS");
+        } else {
+            Serial.println("LittleFS formatted successfully");
+            filesystemOK = true;
+        }
+  } else { // Initial mount success
+      filesystemOK = true;
+      Serial.println("LittleFS formatted successfully");
+      listDir(LittleFS, "/", 0);
+  }
 
-    //Check Wlan
+
+
+    /*
+    ######## start check Wlan, if nossid found start ap mode
+    */
     WiFi.begin(_secrect_ssid_, _secrect_wlan_pass_);
     while(WiFi.status() != WL_CONNECTED){
       DEV_Delay_ms(500); 
       Serial.print(".");
     } 
     Serial.println("WiFi connected");
+
+
+
+
     configTime(gmtOffset_sec, daylightOffset_sec, ntpServer);
 
     //setup led and test
@@ -103,7 +148,7 @@ void setup()
     }
     DS1307_RTC.adjust(DateTime(F(__DATE__), F(__TIME__)));
 
-    printf("Setup End\r\n");
+    Serial.println("Setup End\r\n");
     
 }
 
