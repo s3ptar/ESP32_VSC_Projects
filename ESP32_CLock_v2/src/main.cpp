@@ -24,13 +24,12 @@
   #include <avr/power.h>
 #endif
 #include "RTClib.h"
-#include "secrets.h"
 #include <WiFi.h>
 #include "time.h"
 #include <Arduino.h>
 #include "FS.h"
 #include <LittleFS.h>
-#include <ArduinoJson.h>
+#include <config_data.h>
 
 #include <filesystem.h>
 
@@ -108,26 +107,29 @@ void setup()
             Serial.println("LittleFS formatted successfully");
             filesystemOK = true;
         }
-  } else { // Initial mount success
-      filesystemOK = true;
-      Serial.println("LittleFS formatted successfully");
-      listDir(LittleFS, "/", 0);
-  }
+    } else { // Initial mount success
+        filesystemOK = true;
+        Serial.println("LittleFS formatted successfully");
+        listDir(LittleFS, "/", 0);
+    }
 
-
+    Serial.println("----------------------------------------");
+    Serial.println("              Read Config               ");
+    Serial.println("----------------------------------------");
+    ReadConfig(LittleFS, "/config.json");
 
     /*
     ######## start check Wlan, if nossid found start ap mode
     */
-    WiFi.begin(_secrect_ssid_, _secrect_wlan_pass_);
+    const char* wlan_ssid = _wlan_ssid_;
+    const char* wlan_pass = _wlan_pass_;
+    WiFi.begin(wlan_ssid, wlan_pass);
+    //WiFi.begin("chilihotdog24" ,"bxJHckMMkGqEPfY3Jf3nZnAn5FtGYwKZSkzVvbzFHNbpUZfv79GXm8afDuNu");
     while(WiFi.status() != WL_CONNECTED){
       DEV_Delay_ms(500); 
       Serial.print(".");
     } 
     Serial.println("WiFi connected");
-
-
-
 
     configTime(gmtOffset_sec, daylightOffset_sec, ntpServer);
 

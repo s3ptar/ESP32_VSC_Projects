@@ -1,4 +1,5 @@
 #include <filesystem.h>
+#include <config_data.h>
 
 //https://github.com/espressif/arduino-esp32/blob/master/libraries/LittleFS/examples/LITTLEFS_PlatformIO/src/main.cpp#L172C1-L172C48
 
@@ -74,6 +75,33 @@ void readFile(fs::FS &fs, const char * path){
         Serial.write(file.read());
     }
     file.close();
+}
+
+
+/***********************************************************************
+*! \fn          void ReadConfig(fs::FS &fs, const char * path)
+*  \brief       read config from json to data
+*  \param       none
+*  \exception   none
+*  \return      none
+***********************************************************************/
+void ReadConfig(fs::FS &fs, const char * path){
+
+    Serial.printf("Reading JSON: %s\r\n", path);
+    File file = fs.open(path);
+    if(!file || file.isDirectory()){
+        Serial.println("- failed to open file for reading");
+        return;
+    }
+    StaticJsonDocument<512> doc;
+    // Read the file
+    deserializeJson(doc, file);
+    strcpy(_wlan_ssid_, doc["wlan"]["ssid"]);
+    strcpy(_wlan_pass_, doc["wlan"]["pass"]);
+    //_wlan_ssid_ = doc["wlan"]["ssid"];
+    //_wlan_pass_ = doc["wlan"]["pass"];
+    file.close();
+
 }
 
 void writeFile(fs::FS &fs, const char * path, const char * message){

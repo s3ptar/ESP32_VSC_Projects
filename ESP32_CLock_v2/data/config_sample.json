@@ -1,0 +1,7 @@
+{
+    "wlan" : {
+        "ssid" : "ssid_id",
+        "pass" : "passphrase"
+    }
+
+}
