@@ -14,10 +14,12 @@
 * Includes
 ***********************************************************************/
 
-#include "DEV_Config.h"
 #include "EPD.h"
 #include "GUI_Paint.h"
 #include "imagedata.h"
+
+#include "epaperTask.h"
+#include "DEV_Config.h"
 #include <stdlib.h>
 #include <Adafruit_NeoPixel.h>
 #ifdef __AVR__
@@ -32,6 +34,7 @@
 #include <config_data.h>
 
 #include <filesystem.h>
+#include "NTPClient.h"
 
 /***********************************************************************
 * Informations
@@ -47,6 +50,8 @@
 
 Adafruit_NeoPixel strip = Adafruit_NeoPixel(12, 18, NEO_GRB + NEO_KHZ800);
 RTC_DS1307 DS1307_RTC;
+WiFiUDP ntpUDP;
+NTPClient timeClient(ntpUDP);
 
 /***********************************************************************
 * Constant
@@ -62,6 +67,7 @@ const int   daylightOffset_sec = 0;
 * Global Variable
 ***********************************************************************/
 bool filesystemOK = false;
+bool RTC_Ok = true;
 
 /***********************************************************************
 * local Variable
@@ -121,53 +127,10 @@ void setup()
 
 
     Serial.println("----------------------------------------");
-    Serial.println("              Check E - Paper             ");
+    Serial.println("              Check E - Paper           ");
     Serial.println("----------------------------------------");
-    EPD_2IN9B_V3_Init();
-    EPD_2IN9B_V3_Clear();
-    DEV_Delay_ms(500);
-    //Create a new image cache named IMAGE_BW and fill it with white
-    UBYTE *BlackImage, *RYImage; // Red or Yellow
-    UWORD Imagesize = ((EPD_2IN9B_V3_WIDTH % 8 == 0)? (EPD_2IN9B_V3_WIDTH / 8 ): (EPD_2IN9B_V3_WIDTH / 8 + 1)) * EPD_2IN9B_V3_HEIGHT;
-    if((BlackImage = (UBYTE *)malloc(Imagesize)) == NULL) {
-        printf("Failed to apply for black memory...\r\n");
-        while(1);
-    }
-    if((RYImage = (UBYTE *)malloc(Imagesize)) == NULL) {
-        printf("Failed to apply for red memory...\r\n");
-        while(1);
-    }
-    
-    printf("NewImage:BlackImage and RYImage\r\n");
-    Paint_NewImage(BlackImage, EPD_2IN9B_V3_WIDTH, EPD_2IN9B_V3_HEIGHT, 270, WHITE);
-    Paint_NewImage(RYImage, EPD_2IN9B_V3_WIDTH, EPD_2IN9B_V3_HEIGHT, 270, WHITE);
-    
-    //Select Image
-    Paint_SelectImage(BlackImage);
-    Paint_Clear(WHITE);
-    Paint_SelectImage(RYImage);
-    Paint_Clear(WHITE);
-    
-    // show image for array    
-    printf("show image for array\r\n");
-    EPD_2IN9B_V3_Display(gImage_2in9bc_b, gImage_2in9bc_ry);
-    DEV_Delay_ms(2000);
-    
-    //1.Draw black image
-    printf("BlackImage\r\n");
-    Paint_SelectImage(BlackImage);
-    Paint_Clear(WHITE);
-    Paint_DrawString_EN(10, 0, "E-Papaer LED Ring Clock", &Font16, BLACK, WHITE);
 
-    //2.Draw red image
-    printf("RYImage\r\n");
-    Paint_SelectImage(RYImage);
-    Paint_Clear(WHITE);
-    Paint_DrawString_EN(10, 50, "...booting...", &Font20, BLACK, WHITE);
-
-    EPD_2IN9B_V3_Display(BlackImage, RYImage);
-    DEV_Delay_ms(2000);
-    EPD_2IN9B_V3_Sleep();
+    init_epaper();
 
     /*
     ######## start check Wlan, if nossid found start ap mode
@@ -181,8 +144,9 @@ void setup()
       Serial.print(".");
     } 
     Serial.println("WiFi connected");
+    timeClient.begin();
+    timeClient.setTimeOffset(3600);
 
-    configTime(gmtOffset_sec, daylightOffset_sec, ntpServer);
 
     //setup led and test
     strip.begin();
@@ -196,10 +160,11 @@ void setup()
     
     //check RTC
     if (!DS1307_RTC.begin()) {
-      Serial.println("Couldn't find RTC");
-      while(1);
+        Serial.println("Couldn't find RTC");
+        RTC_Ok = false;
+    }else {
+        DS1307_RTC.adjust(DateTime(F(__DATE__), F(__TIME__)));
     }
-    DS1307_RTC.adjust(DateTime(F(__DATE__), F(__TIME__)));
 
     Serial.println("Setup End\r\n");
     
@@ -208,22 +173,27 @@ void setup()
 /* The main loop -------------------------------------------------------------*/
 void loop()
 {
-    //printf("loop\r\n");
-    DateTime now = DS1307_RTC.now();
-    Serial.print(now.year(), DEC);
-    Serial.print('/');
-    Serial.print(now.month(), DEC);
-    Serial.print('/');
-    Serial.print(now.day(), DEC);
-    Serial.print(" (");
-    Serial.print(Week_days[now.dayOfTheWeek()]);
-    Serial.print(") ");
-    Serial.print(now.hour(), DEC);
-    Serial.print(':');
-    Serial.print(now.minute(), DEC);
-    Serial.print(':');
-    Serial.print(now.second(), DEC);
-    Serial.println();
+
+    if (RTC_Ok){
+        //printf("loop\r\n");
+        DateTime now = DS1307_RTC.now();
+        Serial.print(now.year(), DEC);
+        Serial.print('/');
+        Serial.print(now.month(), DEC);
+        Serial.print('/');
+        Serial.print(now.day(), DEC);
+        Serial.print(" (");
+        Serial.print(Week_days[now.dayOfTheWeek()]);
+        Serial.print(") ");
+        Serial.print(now.hour(), DEC);
+        Serial.print(':');
+        Serial.print(now.minute(), DEC);
+        Serial.print(':');
+        Serial.print(now.second(), DEC);
+        Serial.println();
+    }
     DEV_Delay_ms(20000);
+    timeClient.update();
+    Serial.println(timeClient.getFormattedTime());
   // 
 }
