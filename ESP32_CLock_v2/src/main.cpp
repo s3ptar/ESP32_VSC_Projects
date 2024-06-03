@@ -34,7 +34,7 @@
 #include <config_data.h>
 
 #include <filesystem.h>
-#include "NTPClient.h"
+#include <ESPNtpClient.h>
 
 /***********************************************************************
 * Informations
@@ -50,17 +50,11 @@
 
 Adafruit_NeoPixel strip = Adafruit_NeoPixel(12, 18, NEO_GRB + NEO_KHZ800);
 RTC_DS1307 DS1307_RTC;
-WiFiUDP ntpUDP;
-NTPClient timeClient(ntpUDP);
-
+#define NTP_TIMEOUT 5000
+#define SHOW_TIME_PERIOD 1000
 /***********************************************************************
 * Constant
 ***********************************************************************/
-
-char Week_days[7][12] = {"Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"}; 
-const char* ntpServer = "pool.ntp.org";
-const long  gmtOffset_sec = 3600;
-const int   daylightOffset_sec = 0;
 
 
 /***********************************************************************
@@ -68,7 +62,12 @@ const int   daylightOffset_sec = 0;
 ***********************************************************************/
 bool filesystemOK = false;
 bool RTC_Ok = true;
-
+boolean syncEventTriggered = false; // True if a time even has been triggered
+NTPEvent_t ntpEvent; // Last triggered event
+double offset;
+double timedelay;
+bool wifiFirstConnected = false;
+const PROGMEM char* ntpServer = "pool.ntp.org";
 /***********************************************************************
 * local Variable
 ***********************************************************************/
@@ -82,6 +81,59 @@ void colorWipe(uint32_t c, uint16_t wait) {
   }
 }
 
+/***********************************************************************
+*! \fn          void onWifiEvent (arduino_event_id_t event, arduino_event_info_t info) 
+*  \brief       event handler wifi
+*  \param       arduino_event_id_t
+*  \param       arduino_event_info_t
+*  \exception   none
+*  \return      none
+***********************************************************************/
+void onWifiEvent (arduino_event_id_t event, arduino_event_info_t info) {
+
+    Serial.printf ("[WiFi-event] event: %d\n", event);
+
+    switch (event) {
+        case ARDUINO_EVENT_WIFI_STA_CONNECTED:
+            Serial.printf ("Connected to %s. Asking for IP address.\r\n", info.wifi_sta_connected.ssid);
+            break;
+        case ARDUINO_EVENT_WIFI_STA_GOT_IP:
+            Serial.printf ("Got IP: %s\r\n", IPAddress (info.got_ip.ip_info.ip.addr).toString ().c_str ());
+            Serial.printf ("Connected: %s\r\n", WiFi.status () == WL_CONNECTED ? "yes" : "no");
+            //digitalWrite (ONBOARDLED, LOW); // Turn on LED
+            wifiFirstConnected = true;
+            break;
+        case ARDUINO_EVENT_WIFI_STA_DISCONNECTED:
+            Serial.printf ("Disconnected from SSID: %s\n", info.wifi_sta_disconnected.ssid);
+            Serial.printf ("Reason: %d\n", info.wifi_sta_disconnected.reason);
+            //digitalWrite (ONBOARDLED, HIGH); // Turn off LED
+            //NTP.stop(); // NTP sync can be disabled to avoid sync errors
+            WiFi.reconnect ();
+            break;
+        default:
+            break;
+    }
+}
+
+/***********************************************************************
+*! \fn          void processSyncEvent (NTPEvent_t ntpEvent)
+*  \brief       ntp event handler
+*  \param       ntpEvent
+*  \exception   none
+*  \return      none
+***********************************************************************/
+void processSyncEvent (NTPEvent_t ntpEvent) {
+    switch (ntpEvent.event) {
+        case timeSyncd:
+        case partlySync:
+        case syncNotNeeded:
+        case accuracyError:
+            Serial.printf ("[NTP-event] %s\n", NTP.ntpEvent2str (ntpEvent));
+            break;
+        default:
+            break;
+    }
+}
 
 /***********************************************************************
 *! \fn          int main(){
@@ -94,6 +146,7 @@ void print_multiple(const char* sign_to_print,  uint8_t num_of_print){
     while(num_of_print--)
         Serial.print(sign_to_print);
 }
+
 
 
 /* Entry point ----------------------------------------------------------------*/
@@ -130,7 +183,7 @@ void setup()
     Serial.println("              Check E - Paper           ");
     Serial.println("----------------------------------------");
 
-    init_epaper();
+    //init_epaper();
 
     /*
     ######## start check Wlan, if nossid found start ap mode
@@ -139,14 +192,18 @@ void setup()
     const char* wlan_pass = _wlan_pass_;
     WiFi.begin(wlan_ssid, wlan_pass);
     //WiFi.begin("chilihotdog24" ,"bxJHckMMkGqEPfY3Jf3nZnAn5FtGYwKZSkzVvbzFHNbpUZfv79GXm8afDuNu");
-    while(WiFi.status() != WL_CONNECTED){
+    /*while(WiFi.status() != WL_CONNECTED){
       DEV_Delay_ms(500); 
       Serial.print(".");
-    } 
+    } */
     Serial.println("WiFi connected");
-    timeClient.begin();
-    timeClient.setTimeOffset(3600);
+    WiFi.onEvent (onWifiEvent);
 
+    //start ntp
+    NTP.onNTPSyncEvent ([] (NTPEvent_t event) {
+        ntpEvent = event;
+        syncEventTriggered = true;
+    });
 
     //setup led and test
     strip.begin();
@@ -171,29 +228,37 @@ void setup()
 }
 
 /* The main loop -------------------------------------------------------------*/
-void loop()
-{
+void loop(){
 
-    if (RTC_Ok){
-        //printf("loop\r\n");
-        DateTime now = DS1307_RTC.now();
-        Serial.print(now.year(), DEC);
-        Serial.print('/');
-        Serial.print(now.month(), DEC);
-        Serial.print('/');
-        Serial.print(now.day(), DEC);
-        Serial.print(" (");
-        Serial.print(Week_days[now.dayOfTheWeek()]);
-        Serial.print(") ");
-        Serial.print(now.hour(), DEC);
-        Serial.print(':');
-        Serial.print(now.minute(), DEC);
-        Serial.print(':');
-        Serial.print(now.second(), DEC);
-        Serial.println();
+    static int i = 0;
+    static int last = 0;
+
+    if (wifiFirstConnected) {
+        wifiFirstConnected = false;
+        NTP.setTimeZone (TZ_Europe_Madrid);
+        NTP.setInterval (600);
+        NTP.setNTPTimeout (NTP_TIMEOUT);
+        // NTP.setMinSyncAccuracy (5000);
+        // NTP.settimeSyncThreshold (3000);
+        NTP.begin (ntpServer);
     }
-    DEV_Delay_ms(20000);
-    timeClient.update();
-    Serial.println(timeClient.getFormattedTime());
-  // 
+
+    if (syncEventTriggered) {
+        syncEventTriggered = false;
+        processSyncEvent (ntpEvent);
+    }
+
+    if ((millis () - last) > SHOW_TIME_PERIOD) {
+        last = millis ();
+        Serial.print (i); Serial.print (" ");
+        Serial.print (NTP.getTimeDateStringUs ()); Serial.print (" ");
+        Serial.print ("WiFi is ");
+        Serial.print (WiFi.isConnected () ? "connected" : "not connected"); Serial.print (". ");
+        Serial.print ("Uptime: ");
+        Serial.print (NTP.getUptimeString ()); Serial.print (" since ");
+        Serial.println (NTP.getTimeDateString (NTP.getFirstSyncUs ()));
+        Serial.printf ("Free heap: %u\n", ESP.getFreeHeap ());
+        i++;
+    }
+  
 }
