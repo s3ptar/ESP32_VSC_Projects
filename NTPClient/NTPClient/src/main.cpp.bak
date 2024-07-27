@@ -10,8 +10,8 @@
 #endif
 
 #ifndef WIFI_CONFIG_H
-#define YOUR_WIFI_SSID ""
-#define YOUR_WIFI_PASSWD ""
+#define YOUR_WIFI_SSID "chilihotdog24"
+#define YOUR_WIFI_PASSWD "bxJHckMMkGqEPfY3Jf3nZnAn5FtGYwKZSkzVvbzFHNbpUZfv79GXm8afDuNu"
 #endif // !WIFI_CONFIG_H
 
 #ifdef ESP32

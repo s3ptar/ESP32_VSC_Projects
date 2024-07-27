@@ -35,6 +35,9 @@
 
 #include <filesystem.h>
 #include <ESPNtpClient.h>
+#include "LoggingTask.h"
+#include "esp_log.h"
+#include "LED_RingTask.h"
 
 /***********************************************************************
 * Informations
@@ -48,10 +51,10 @@
 * Declarations
 ***********************************************************************/
 
-Adafruit_NeoPixel strip = Adafruit_NeoPixel(12, 18, NEO_GRB + NEO_KHZ800);
 RTC_DS1307 DS1307_RTC;
 #define NTP_TIMEOUT 5000
 #define SHOW_TIME_PERIOD 1000
+#define REFRESH_LED_TIME_PERIOD 10000
 /***********************************************************************
 * Constant
 ***********************************************************************/
@@ -60,6 +63,7 @@ RTC_DS1307 DS1307_RTC;
 /***********************************************************************
 * Global Variable
 ***********************************************************************/
+static const char* tag = "Zeitserver";
 bool filesystemOK = false;
 bool RTC_Ok = true;
 boolean syncEventTriggered = false; // True if a time even has been triggered
@@ -72,14 +76,7 @@ const PROGMEM char* ntpServer = "pool.ntp.org";
 * local Variable
 ***********************************************************************/
 
-// Fill the dots one after the other with a color
-void colorWipe(uint32_t c, uint16_t wait) {
-  for(uint16_t i=0; i<strip.numPixels(); i++) {
-    strip.setPixelColor(i, c);
-    strip.show();
-    DEV_Delay_ms(wait);
-  }
-}
+
 
 /***********************************************************************
 *! \fn          void onWifiEvent (arduino_event_id_t event, arduino_event_info_t info) 
@@ -152,7 +149,7 @@ void print_multiple(const char* sign_to_print,  uint8_t num_of_print){
 /* Entry point ----------------------------------------------------------------*/
 void setup()
 {
-    Serial.println("ESP32 Clock with EPaper");
+
 
     DEV_Module_Init();
     Serial.println("----------------------------------------");
@@ -171,6 +168,9 @@ void setup()
         Serial.println("LittleFS formatted successfully");
         listDir(LittleFS, "/", 0);
     }
+
+    setup_logging(ESP_LOG_VERBOSE);
+    Serial.println("ESP32 Clock with EPaper");
 
 
     Serial.println("----------------------------------------");
@@ -205,15 +205,7 @@ void setup()
         syncEventTriggered = true;
     });
 
-    //setup led and test
-    strip.begin();
-    strip.setBrightness(100);
-    strip.show(); // Initialize all pixels to 'off'
-    colorWipe(strip.Color(255, 0, 0), 200); // Red
-    colorWipe(strip.Color(0, 255, 0), 200); // Green
-    colorWipe(strip.Color(0, 0, 255), 200); // Blue
-    colorWipe(strip.Color(0, 0, 0), 200); // off
-    strip.show();
+    led_ring_setup();
     
     //check RTC
     if (!DS1307_RTC.begin()) {
@@ -223,7 +215,7 @@ void setup()
         DS1307_RTC.adjust(DateTime(F(__DATE__), F(__TIME__)));
     }
 
-    Serial.println("Setup End\r\n");
+
     
 }
 
@@ -235,7 +227,7 @@ void loop(){
 
     if (wifiFirstConnected) {
         wifiFirstConnected = false;
-        NTP.setTimeZone (TZ_Europe_Madrid);
+        NTP.setTimeZone (TZ_Europe_Berlin);
         NTP.setInterval (600);
         NTP.setNTPTimeout (NTP_TIMEOUT);
         // NTP.setMinSyncAccuracy (5000);
@@ -248,16 +240,22 @@ void loop(){
         processSyncEvent (ntpEvent);
     }
 
-    if ((millis () - last) > SHOW_TIME_PERIOD) {
+    //led_ring_set_time();
+
+
+
+    if ((millis () - last) > REFRESH_LED_TIME_PERIOD) {
         last = millis ();
-        Serial.print (i); Serial.print (" ");
-        Serial.print (NTP.getTimeDateStringUs ()); Serial.print (" ");
-        Serial.print ("WiFi is ");
-        Serial.print (WiFi.isConnected () ? "connected" : "not connected"); Serial.print (". ");
-        Serial.print ("Uptime: ");
-        Serial.print (NTP.getUptimeString ()); Serial.print (" since ");
-        Serial.println (NTP.getTimeDateString (NTP.getFirstSyncUs ()));
-        Serial.printf ("Free heap: %u\n", ESP.getFreeHeap ());
+        //Serial.print (i); Serial.print (" ");
+        //ESP_LOGI(tag, "time is on your side");
+        //Serial.println("write to log");
+        //Serial.print ("WiFi is ");
+        //Serial.print (WiFi.isConnected () ? "connected" : "not connected"); Serial.print (". ");
+        //Serial.print ("Uptime: ");
+        //Serial.print (NTP.getUptimeString ()); Serial.print (" since ");
+        //Serial.println (NTP.getTimeDateString (NTP.getFirstSyncUs ()));
+        //Serial.printf ("Free heap: %u\n", ESP.getFreeHeap ());
+        led_ring_task();
         i++;
     }
   
