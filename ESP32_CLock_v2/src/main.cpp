@@ -45,8 +45,17 @@
 //https://www.waveshare.com/wiki/E-Paper_ESP32_Driver_Board
 //https://files.waveshare.com/upload/8/80/E-Paper_ESP32_Driver_Board_Schematic.pdf
 //https://microcontrollerslab.com/esp32-ds1307-real-time-clock-rtc-oled/
-//;board_build.filesystem = littlefs
+//https://github.com/gmag11/NtpClient/blob/master/examples/NTPClientESP32/NTPClientESP32.ino
+//board_build.filesystem = littlefs
 //https://www.bing.com/images/search?view=detailV2&ccid=1nP4%2fWBC&id=B2BCFF8B182D76770AB4812E6973054BC467AAC3&thid=OIP.1nP4_WBClfQR0vL8HcnsNwHaES&mediaurl=https%3a%2f%2ffile.vishnumaiea.in%2fdownload%2fesp32%2fESP32-Devkit-Pinout-Rev-12-9600p.png&cdnurl=https%3a%2f%2fth.bing.com%2fth%2fid%2fR.d673f8fd604295f411d2f2fc1dc9ec37%3frik%3dw6pnxEsFc2kugQ%26pid%3dImgRaw%26r%3d0&exph=5569&expw=9600&q=esp32+pinout&simid=608015860527427334&FORM=IRPRST&ck=46B3AD8587E3E7AF133BC4CA002C2833&selectedIndex=0&itb=0&idpp=overlayview&ajaxhist=0&ajaxserp=0
+
+/*Pinning
+SCL = GPIO22
+SDA = GPIO21
+LED = GPIO18
+
+*/
+
 /***********************************************************************
 * Declarations
 ***********************************************************************/
@@ -72,6 +81,8 @@ double offset;
 double timedelay;
 bool wifiFirstConnected = false;
 const PROGMEM char* ntpServer = "pool.ntp.org";
+
+
 /***********************************************************************
 * local Variable
 ***********************************************************************/
@@ -113,6 +124,23 @@ void onWifiEvent (arduino_event_id_t event, arduino_event_info_t info) {
 }
 
 /***********************************************************************
+*! \fn          void syncRTC()
+*  \brief       store ntp time in rtc
+*  \param       ntpEvent
+*  \exception   none
+*  \return      none
+***********************************************************************/
+void syncRTC(){
+    struct tm tm;
+    if(!getLocalTime(&tm)){
+        Serial.println("Failed to obtain time");
+        return;
+    }
+    DS1307_RTC.adjust(DateTime(tm.tm_year + 1900, tm.tm_mon + 1, tm.tm_mday, tm.tm_hour, tm.tm_min, tm.tm_sec));
+
+}
+
+/***********************************************************************
 *! \fn          void processSyncEvent (NTPEvent_t ntpEvent)
 *  \brief       ntp event handler
 *  \param       ntpEvent
@@ -122,6 +150,10 @@ void onWifiEvent (arduino_event_id_t event, arduino_event_info_t info) {
 void processSyncEvent (NTPEvent_t ntpEvent) {
     switch (ntpEvent.event) {
         case timeSyncd:
+            Serial.printf ("[NTP-event] %s\n", NTP.ntpEvent2str (ntpEvent));
+            //DS1307_RTC.adjust(DateTime(2023, 6, 18, (timeClient.getHours()), (timeClient.getMinutes()), (timeClient.getSeconds())));
+            Serial.println("NTP synced to RTC");
+            syncRTC();
         case partlySync:
         case syncNotNeeded:
         case accuracyError:
@@ -131,6 +163,8 @@ void processSyncEvent (NTPEvent_t ntpEvent) {
             break;
     }
 }
+
+
 
 /***********************************************************************
 *! \fn          int main(){
@@ -213,6 +247,7 @@ void setup()
         RTC_Ok = false;
     }else {
         DS1307_RTC.adjust(DateTime(F(__DATE__), F(__TIME__)));
+        Serial.println("RTC Okay");
     }
 
 
@@ -255,8 +290,10 @@ void loop(){
         //Serial.print (NTP.getUptimeString ()); Serial.print (" since ");
         //Serial.println (NTP.getTimeDateString (NTP.getFirstSyncUs ()));
         //Serial.printf ("Free heap: %u\n", ESP.getFreeHeap ());
-        led_ring_task();
+        DateTime dt = DS1307_RTC.now();
+        led_ring_task(dt);
         i++;
-    }
+        
+    } 
   
 }

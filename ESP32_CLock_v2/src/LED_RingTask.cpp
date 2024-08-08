@@ -51,7 +51,7 @@ Adafruit_NeoPixel strip = Adafruit_NeoPixel(12, 18, NEO_GRB + NEO_KHZ800);
 /***********************************************************************
 * Local Funtions
 ***********************************************************************/
-
+#define countof(a) (sizeof(a) / sizeof(a[0]))
 
 
 /***********************************************************************
@@ -90,26 +90,132 @@ void led_ring_setup(){
 }
 
 /***********************************************************************
-*! \fn          void led_ring_task()
+*! \fn          void led_ring_task(const DateTime& dt)
 *  \brief       set time to led ring
-*  \param       none
+*  \param       const dateTime& dt
 *  \exception   none
 *  \return      none
 ***********************************************************************/
-void led_ring_task(){
+void led_ring_task(const DateTime& dt){
     //setup led and test
-    struct tm timeinfo;
+    /*struct tm timeinfo;
     if(!getLocalTime(&timeinfo)){
         Serial.println("Failed to obtain time");
         return;
     }
-    uint8_t hour = timeinfo.tm_hour;
-    uint8_t minutes = timeinfo.tm_min;
+    
 
     char outpu_buf[64];
     sprintf(outpu_buf, "hour : %d and minutes %d", hour, minutes);
 
-    Serial.println(outpu_buf);
+    Serial.println(outpu_buf);*/
+
+    char datestring[20];
+
+    snprintf_P(datestring, 
+            countof(datestring),
+            PSTR("%02u/%02u/%04u %02u:%02u:%02u"),
+            dt.month(),
+            dt.day(),
+            dt.year(),
+            dt.hour(),
+            dt.minute(),
+            dt.second() );
+    Serial.println(datestring);
+
+    
+    uint8_t hour = dt.hour();
+    //wenn größer 12 dann halbieren
+    if(hour > 12)
+        hour -= 12;
+    //led positions korrektur 0 = 7 Uhr
+    switch(hour){
+      case 0:
+          hour = 5;
+          break;
+      case 1:
+          hour = 6;
+          break;
+      case 2:
+          hour = 7;
+          break;
+      case 3:
+          hour = 8;
+          break;
+      case 4:
+          hour = 9;
+          break;
+      case 5:
+          hour = 10;
+          break;
+      case 6:
+          hour = 11;
+          break;
+      case 7:
+          hour = 0;
+          break;
+      case 8:
+          hour = 1;
+          break;
+      case 9:
+          hour = 2;
+          break;
+      case 10:
+          hour = 3;
+          break;
+      case 11:
+          hour = 4;
+          break;
+
+    }
+    uint8_t minutes = dt.minute();
+    
+    switch(minutes){
+      case 0 ... 4:
+          minutes = 5;
+          break;
+      case 5 ... 9:
+          minutes = 6;
+          break;
+      case 10 ... 14:
+          minutes = 7;
+          break;
+      case 15 ... 19:
+          minutes = 8;
+          break;
+      case 20 ... 24:
+          minutes = 9;
+          break;
+      case 25 ... 29:
+          minutes = 10;
+          break;
+      case 30 ... 34:
+          minutes = 11;
+          break;
+      case 35 ... 39:
+          minutes = 0;
+          break;
+      case 40 ... 44:
+          minutes = 1;
+          break;
+      case 45 ... 49:
+          minutes = 2;
+          break;
+      case 50 ... 54:
+          minutes = 3;
+          break;
+      case 55 ... 59:
+          minutes = 4;
+          break;
+
+    }
+
+    
+
+    strip.clear();
+    strip.setPixelColor(minutes, strip.Color(0, 0, 255));
+    strip.setPixelColor(hour, strip.Color(0, 255, 0));
+    strip.show();
 
 
   //Serial.println(&timeinfo, "%A, %B %d %Y %H:%M:%S");
