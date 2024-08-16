@@ -63,7 +63,7 @@ LED = GPIO18
 RTC_DS1307 DS1307_RTC;
 #define NTP_TIMEOUT 5000
 #define SHOW_TIME_PERIOD 1000
-#define REFRESH_LED_TIME_PERIOD 10000
+#define REFRESH_LED_TIME_PERIOD 30000
 /***********************************************************************
 * Constant
 ***********************************************************************/
@@ -240,6 +240,7 @@ void setup()
     });
 
     led_ring_setup();
+    init_epaper();
     
     //check RTC
     if (!DS1307_RTC.begin()) {
