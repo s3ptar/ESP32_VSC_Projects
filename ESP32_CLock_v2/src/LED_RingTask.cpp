@@ -19,6 +19,7 @@
 #include <Adafruit_NeoPixel.h>
 #include "DEV_Config.h"
 #include "Time.h"
+#include "LoggingTask.h"
 /***********************************************************************
 * Informations
 ***********************************************************************/
@@ -121,7 +122,7 @@ void led_ring_task(const DateTime& dt){
             dt.hour(),
             dt.minute(),
             dt.second() );
-    Serial.println(datestring);
+    //Serial.println(datestring);
 
     
     uint8_t hour = dt.hour();

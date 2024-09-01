@@ -64,6 +64,7 @@ RTC_DS1307 DS1307_RTC;
 #define NTP_TIMEOUT 5000
 #define SHOW_TIME_PERIOD 1000
 #define REFRESH_LED_TIME_PERIOD 30000
+#define REFRESH_LED_TIME_PERIOD_EPAPER 300000
 /***********************************************************************
 * Constant
 ***********************************************************************/
@@ -99,21 +100,33 @@ const PROGMEM char* ntpServer = "pool.ntp.org";
 ***********************************************************************/
 void onWifiEvent (arduino_event_id_t event, arduino_event_info_t info) {
 
-    Serial.printf ("[WiFi-event] event: %d\n", event);
+    char str_buffer[128];
+
+    sprintf(str_buffer, "[WiFi-event] event: %d\n", event);
+    write_to_log(log_lvl_information, "Wifi" , str_buffer); 
+    
 
     switch (event) {
         case ARDUINO_EVENT_WIFI_STA_CONNECTED:
-            Serial.printf ("Connected to %s. Asking for IP address.\r\n", info.wifi_sta_connected.ssid);
+            sprintf(str_buffer, "Connected to %s. Asking for IP address.\r\n", info.wifi_sta_connected.ssid);
+            write_to_log(log_lvl_information, "Wifi" , str_buffer); 
             break;
         case ARDUINO_EVENT_WIFI_STA_GOT_IP:
-            Serial.printf ("Got IP: %s\r\n", IPAddress (info.got_ip.ip_info.ip.addr).toString ().c_str ());
-            Serial.printf ("Connected: %s\r\n", WiFi.status () == WL_CONNECTED ? "yes" : "no");
+            sprintf(str_buffer, "Got IP: %s\r\n", IPAddress (info.got_ip.ip_info.ip.addr).toString ().c_str ());
+            write_to_log(log_lvl_information, "Wifi" , str_buffer); 
+
+            sprintf(str_buffer, "Connected: %s\r\n", WiFi.status () == WL_CONNECTED ? "yes" : "no");
+            write_to_log(log_lvl_information, "Wifi" , str_buffer); 
+
             //digitalWrite (ONBOARDLED, LOW); // Turn on LED
             wifiFirstConnected = true;
             break;
         case ARDUINO_EVENT_WIFI_STA_DISCONNECTED:
-            Serial.printf ("Disconnected from SSID: %s\n", info.wifi_sta_disconnected.ssid);
-            Serial.printf ("Reason: %d\n", info.wifi_sta_disconnected.reason);
+            sprintf(str_buffer, "Disconnected from SSID: %s\n", info.wifi_sta_disconnected.ssid);
+            write_to_log(log_lvl_information, "Wifi" , str_buffer); 
+
+            sprintf(str_buffer, "Reason: %d\n", info.wifi_sta_disconnected.reason);
+            write_to_log(log_lvl_information, "Wifi" , str_buffer); 
             //digitalWrite (ONBOARDLED, HIGH); // Turn off LED
             //NTP.stop(); // NTP sync can be disabled to avoid sync errors
             WiFi.reconnect ();
@@ -133,7 +146,7 @@ void onWifiEvent (arduino_event_id_t event, arduino_event_info_t info) {
 void syncRTC(){
     struct tm tm;
     if(!getLocalTime(&tm)){
-        Serial.println("Failed to obtain time");
+        write_to_log(log_lvl_information, "RTC" , "Failed to obtain time"); 
         return;
     }
     DS1307_RTC.adjust(DateTime(tm.tm_year + 1900, tm.tm_mon + 1, tm.tm_mday, tm.tm_hour, tm.tm_min, tm.tm_sec));
@@ -148,16 +161,22 @@ void syncRTC(){
 *  \return      none
 ***********************************************************************/
 void processSyncEvent (NTPEvent_t ntpEvent) {
+
+    char str_buffer[128];
+
     switch (ntpEvent.event) {
         case timeSyncd:
-            Serial.printf ("[NTP-event] %s\n", NTP.ntpEvent2str (ntpEvent));
+            sprintf(str_buffer, "[NTP-event] %s\n", NTP.ntpEvent2str (ntpEvent));
+            write_to_log(log_lvl_information, "RTC" , str_buffer); 
             //DS1307_RTC.adjust(DateTime(2023, 6, 18, (timeClient.getHours()), (timeClient.getMinutes()), (timeClient.getSeconds())));
-            Serial.println("NTP synced to RTC");
+
+            write_to_log(log_lvl_information, "RTC" , "NTP synced to RTC"); 
             syncRTC();
         case partlySync:
         case syncNotNeeded:
         case accuracyError:
-            Serial.printf ("[NTP-event] %s\n", NTP.ntpEvent2str (ntpEvent));
+            sprintf(str_buffer, "[NTP-event] %s\n", NTP.ntpEvent2str (ntpEvent));
+            write_to_log(log_lvl_information, "RTC" , str_buffer); 
             break;
         default:
             break;
@@ -166,56 +185,33 @@ void processSyncEvent (NTPEvent_t ntpEvent) {
 
 
 
-/***********************************************************************
-*! \fn          int main(){
-*  \brief       start up function
-*  \param       none
-*  \exception   none
-*  \return      none
-***********************************************************************/
-void print_multiple(const char* sign_to_print,  uint8_t num_of_print){
-    while(num_of_print--)
-        Serial.print(sign_to_print);
-}
-
 
 
 /* Entry point ----------------------------------------------------------------*/
 void setup()
 {
 
-
     DEV_Module_Init();
-    Serial.println("----------------------------------------");
-    Serial.println("           Check File System            ");
-    Serial.println("----------------------------------------");
+    write_to_log(log_lvl_information, "main", "Check File System ");
     if (!LittleFS.begin(false /* false: Do not format if mount failed */)) {
         Serial.println("Failed to mount LittleFS");
         if (!LittleFS.begin(true /* true: format */)) {
-            Serial.println("Failed to format LittleFS");
+            write_to_log(log_lvl_errors, "LittleFS", "Failed to format LittleFS");
         } else {
-            Serial.println("LittleFS formatted successfully");
+            write_to_log(log_lvl_information, "LittleFS", "LittleFS formatted successfully");
             filesystemOK = true;
         }
     } else { // Initial mount success
         filesystemOK = true;
-        Serial.println("LittleFS formatted successfully");
         listDir(LittleFS, "/", 0);
     }
-
+ 
     setup_logging(ESP_LOG_VERBOSE);
-    Serial.println("ESP32 Clock with EPaper");
-
-
-    Serial.println("----------------------------------------");
-    Serial.println("              Read Config               ");
-    Serial.println("----------------------------------------");
+    
+    write_to_log(log_lvl_debug, "config", "Read Config");
     ReadConfig(LittleFS, "/config.json");
 
-
-    Serial.println("----------------------------------------");
-    Serial.println("              Check E - Paper           ");
-    Serial.println("----------------------------------------");
+    write_to_log(log_lvl_debug, "epeper" ,"Check E - Paper");
 
     //init_epaper();
 
@@ -230,7 +226,7 @@ void setup()
       DEV_Delay_ms(500); 
       Serial.print(".");
     } */
-    Serial.println("WiFi connected");
+    write_to_log(log_lvl_debug, "wifi" ,"connected"); 
     WiFi.onEvent (onWifiEvent);
 
     //start ntp
@@ -240,15 +236,15 @@ void setup()
     });
 
     led_ring_setup();
-    init_epaper();
+    //init_epaper();
     
     //check RTC
     if (!DS1307_RTC.begin()) {
-        Serial.println("Couldn't find RTC");
+        write_to_log(log_lvl_errors, "RTC" ,"Couldn't find RTC"); 
         RTC_Ok = false;
     }else {
         DS1307_RTC.adjust(DateTime(F(__DATE__), F(__TIME__)));
-        Serial.println("RTC Okay");
+        write_to_log(log_lvl_information, "RTC" ,"Okay"); 
     }
 
 
@@ -259,7 +255,9 @@ void setup()
 void loop(){
 
     static int i = 0;
-    static int last = 0;
+    static int last, epaper_last_refresh = 0;
+    info_epaper_t information_epaper;
+    DateTime dt;
 
     if (wifiFirstConnected) {
         wifiFirstConnected = false;
@@ -291,9 +289,25 @@ void loop(){
         //Serial.print (NTP.getUptimeString ()); Serial.print (" since ");
         //Serial.println (NTP.getTimeDateString (NTP.getFirstSyncUs ()));
         //Serial.printf ("Free heap: %u\n", ESP.getFreeHeap ());
-        DateTime dt = DS1307_RTC.now();
+        dt = DS1307_RTC.now(); 
         led_ring_task(dt);
         i++;
+        
+    } 
+    if ((millis () - epaper_last_refresh) > REFRESH_LED_TIME_PERIOD_EPAPER) {
+        epaper_last_refresh = millis ();
+        //Serial.print (i); Serial.print (" ");
+        //ESP_LOGI(tag, "time is on your side");
+        //Serial.println("write to log");
+        //Serial.print ("WiFi is ");
+        //Serial.print (WiFi.isConnected () ? "connected" : "not connected"); Serial.print (". ");
+        //Serial.print ("Uptime: ");
+        //Serial.print (NTP.getUptimeString ()); Serial.print (" since ");
+        //Serial.println (NTP.getTimeDateString (NTP.getFirstSyncUs ()));
+        //Serial.printf ("Free heap: %u\n", ESP.getFreeHeap ());
+        information_epaper.hour = dt.hour();
+        information_epaper.minute = dt.minute();
+        set_info_epaper(&information_epaper);
         
     } 
   

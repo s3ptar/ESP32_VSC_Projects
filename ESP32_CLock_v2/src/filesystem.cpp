@@ -19,9 +19,9 @@ void listDir(fs::FS &fs, const char * dirname, uint8_t levels){
     File file = root.openNextFile();
     while(file){
         if(file.isDirectory()){
-            Serial.print("  DIR : ");
+            // Serial.print("  DIR : ");
 
-            Serial.print(file.name());
+            // Serial.print(file.name());
             time_t t= file.getLastWrite();
             struct tm * tmstruct = localtime(&t);
             Serial.printf("  LAST WRITE: %d-%02d-%02d %02d:%02d:%02d\n",(tmstruct->tm_year)+1900,( tmstruct->tm_mon)+1, tmstruct->tm_mday,tmstruct->tm_hour , tmstruct->tm_min, tmstruct->tm_sec);
@@ -30,11 +30,11 @@ void listDir(fs::FS &fs, const char * dirname, uint8_t levels){
                 listDir(fs, file.name(), levels -1);
             }
         } else {
-            Serial.print("  FILE: ");
-            Serial.print(file.name());
-            Serial.print("  SIZE: ");
+            // Serial.print("  FILE: ");
+            // Serial.print(file.name());
+            // Serial.print("  SIZE: ");
 
-            Serial.print(file.size());
+            // Serial.print(file.size());
             time_t t= file.getLastWrite();
             struct tm * tmstruct = localtime(&t);
             Serial.printf("  LAST WRITE: %d-%02d-%02d %02d:%02d:%02d\n",(tmstruct->tm_year)+1900,( tmstruct->tm_mon)+1, tmstruct->tm_mday,tmstruct->tm_hour , tmstruct->tm_min, tmstruct->tm_sec);
@@ -226,11 +226,11 @@ void testFileIO(fs::FS &fs, const char * path){
     }
 
     size_t i;
-    Serial.print("- writing" );
+    // Serial.print("- writing" );
     uint32_t start = millis();
     for(i=0; i<2048; i++){
         if ((i & 0x001F) == 0x001F){
-          Serial.print(".");
+          // Serial.print(".");
         }
         file.write(buf, 512);
     }
@@ -247,7 +247,7 @@ void testFileIO(fs::FS &fs, const char * path){
         len = file.size();
         size_t flen = len;
         start = millis();
-        Serial.print("- reading" );
+        // Serial.print("- reading" );
         while(len){
             size_t toRead = len;
             if(toRead > 512){
@@ -255,7 +255,7 @@ void testFileIO(fs::FS &fs, const char * path){
             }
             file.read(buf, toRead);
             if ((i++ & 0x001F) == 0x001F){
-              Serial.print(".");
+              // Serial.print(".");
             }
             len -= toRead;
         }

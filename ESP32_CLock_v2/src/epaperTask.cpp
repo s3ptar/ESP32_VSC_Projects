@@ -15,10 +15,10 @@
 #include "EPD.h"
 #include "GUI_Paint.h"
 #include "imagedata.h"
-
 #include "epaperTask.h"
 #include "DEV_Config.h"
 #include <stdlib.h>
+#include "LoggingTask.h"
 /***********************************************************************
 * Informations
 ***********************************************************************/
@@ -37,6 +37,9 @@
 /***********************************************************************
 * Global Variable
 ***********************************************************************/
+//Create a new image cache named IMAGE_BW and fill it with white
+UBYTE *BlackImage, *RYImage; // Red or Yellow
+UWORD Imagesize = ((EPD_2IN9B_V3_WIDTH % 8 == 0)? (EPD_2IN9B_V3_WIDTH / 8 ): (EPD_2IN9B_V3_WIDTH / 8 + 1)) * EPD_2IN9B_V3_HEIGHT;
 
 
 /***********************************************************************
@@ -51,7 +54,7 @@
 /***********************************************************************
 * Local Funtions
 ***********************************************************************/
-
+#define countof(a) (sizeof(a) / sizeof(a[0]))
 
 /***********************************************************************
 *! \fn          void init_epaper(void)
@@ -65,20 +68,24 @@ void init_epaper(void){
     EPD_2IN9B_V3_Init();
     EPD_2IN9B_V3_Clear();
     DEV_Delay_ms(500);
+    char str_buffer[128];
 
-    //Create a new image cache named IMAGE_BW and fill it with white
-    UBYTE *BlackImage, *RYImage; // Red or Yellow
-    UWORD Imagesize = ((EPD_2IN9B_V3_WIDTH % 8 == 0)? (EPD_2IN9B_V3_WIDTH / 8 ): (EPD_2IN9B_V3_WIDTH / 8 + 1)) * EPD_2IN9B_V3_HEIGHT;
+    
     if((BlackImage = (UBYTE *)malloc(Imagesize)) == NULL) {
         printf("Failed to apply for black memory...\r\n");
+        //sprintf(str_buffer, "[WiFi-event] event: %d\n", event);
+        write_to_log(log_lvl_errors, "E-Paper" , "Failed to apply for black memory..."); 
         while(1);
     }
     if((RYImage = (UBYTE *)malloc(Imagesize)) == NULL) {
-        printf("Failed to apply for red memory...\r\n");
+        write_to_log(log_lvl_errors, "E-Paper" , "Failed to apply for red memory..."); 
         while(1);
     }
     
     printf("NewImage:BlackImage and RYImage\r\n");
+    write_to_log(log_lvl_information, "E-Paper" , "NewImage:BlackImage and RYImage"); 
+
+
     Paint_NewImage(BlackImage, EPD_2IN9B_V3_WIDTH, EPD_2IN9B_V3_HEIGHT, 270, WHITE);
     Paint_NewImage(RYImage, EPD_2IN9B_V3_WIDTH, EPD_2IN9B_V3_HEIGHT, 270, WHITE);
     
@@ -89,18 +96,16 @@ void init_epaper(void){
     Paint_Clear(WHITE);
     
     // show image for array    
-    printf("show image for array\r\n");
+    write_to_log(log_lvl_information, "E-Paper" , "show image for array"); 
     EPD_2IN9B_V3_Display(gImage_2in9bc_b, gImage_2in9bc_ry);
     DEV_Delay_ms(2000);
     
     //1.Draw black image
-    printf("BlackImage\r\n");
     Paint_SelectImage(BlackImage);
     Paint_Clear(WHITE);
     Paint_DrawString_EN(10, 0, "E-Papaer LED Ring Clock", &Font16, BLACK, WHITE);
 
     //2.Draw red image
-    printf("RYImage\r\n");
     Paint_SelectImage(RYImage);
     Paint_Clear(WHITE);
     Paint_DrawString_EN(10, 50, "...booting...", &Font20, BLACK, WHITE);
@@ -116,7 +121,7 @@ void init_epaper(void){
     Paint_SelectImage(BlackImage);
     Paint_Clear(WHITE);
     Paint_SelectImage(RYImage);
-    Paint_Clear(WHITE);
+    Paint_Clear(WHITE); 
     EPD_2IN9B_V3_Display(BlackImage, RYImage);
     DEV_Delay_ms(2000);
     EPD_2IN9B_V3_Sleep(); 
@@ -125,40 +130,70 @@ void init_epaper(void){
 
 
 /***********************************************************************
-*! \fn          void epaper_show_information
+*! \fn          void set_info_epaper(struct_info_epaper infomation);
 *  \brief       display the information on the epaper
 *  \param       none
 *  \exception   none
 *  \return      none
 ***********************************************************************/
-void epaper_show_information(){
+void set_info_epaper(info_epaper_t *infomation){
 
     EPD_2IN9B_V3_Init();
     EPD_2IN9B_V3_Clear();
     DEV_Delay_ms(500);
+    char datestring[20];
+    char str_buffer[128];
+
+    write_to_log(log_lvl_information, "E-Paper" , "show information"); 
+
+    snprintf_P(datestring, 
+            countof(datestring),
+            //PSTR("%02u/%02u/%04u %02u:%02u:%02u"),
+            PSTR("%02u:%02u "),
+            //infomation.dt.month(),
+            //infomation.dt.day(),
+            //infomation.dt.year(),
+            //infomation->test.hour(),
+            //infomation->dt.minute(),
+            //infomation->dt.second()
+            infomation->hour,
+            infomation->minute
+            );
 
     //Create a new image cache named IMAGE_BW and fill it with white
-    UBYTE *BlackImage, *RYImage; // Red or Yellow
-    UWORD Imagesize = ((EPD_2IN9B_V3_WIDTH % 8 == 0)? (EPD_2IN9B_V3_WIDTH / 8 ): (EPD_2IN9B_V3_WIDTH / 8 + 1)) * EPD_2IN9B_V3_HEIGHT;
+    //UBYTE *BlackImage, *RYImage; // Red or Yellow
+    //UWORD Imagesize = ((EPD_2IN9B_V3_WIDTH % 8 == 0)? (EPD_2IN9B_V3_WIDTH / 8 ): (EPD_2IN9B_V3_WIDTH / 8 + 1)) * EPD_2IN9B_V3_HEIGHT;
     if((BlackImage = (UBYTE *)malloc(Imagesize)) == NULL) {
-        printf("Failed to apply for black memory...\r\n");
+        write_to_log(log_lvl_errors, "E-Paper" , "Failed to apply for black memory"); 
         while(1);
     }
     if((RYImage = (UBYTE *)malloc(Imagesize)) == NULL) {
-        printf("Failed to apply for red memory...\r\n");
+        write_to_log(log_lvl_errors, "E-Paper" , "Failed to apply for red memory"); 
         while(1);
     }
-    
-    printf("NewImage:BlackImage and RYImage\r\n");
+    write_to_log(log_lvl_information, "E-Paper" , "NewImage:BlackImage and RYImage"); 
     Paint_NewImage(BlackImage, EPD_2IN9B_V3_WIDTH, EPD_2IN9B_V3_HEIGHT, 270, WHITE);
     Paint_NewImage(RYImage, EPD_2IN9B_V3_WIDTH, EPD_2IN9B_V3_HEIGHT, 270, WHITE);
 
     //clean
     //1.Draw black image
-    printf("BlackImage\r\n");
+
     Paint_SelectImage(BlackImage);
     Paint_Clear(WHITE);
-    Paint_DrawString_EN(10, 0, "E-Papaer LED Ring Clock", &Font16, BLACK, WHITE);
+    Paint_SelectImage(RYImage);
+    Paint_Clear(WHITE);
+
+    Paint_DrawString_EN(20, 20, datestring, &Font20, WHITE, BLACK);
+
+    EPD_2IN9B_V3_Display(BlackImage, RYImage);
+    DEV_Delay_ms(2000);
+    //EPD_2IN9B_V3_Sleep(); 
+
+    //DEV_Delay_ms(10000);
+
+    EPD_2IN9B_V3_Sleep(); 
+    sprintf(str_buffer, "Set time to %s", datestring );
+    write_to_log(log_lvl_information, "e - Paper", str_buffer);
 
 }
 
