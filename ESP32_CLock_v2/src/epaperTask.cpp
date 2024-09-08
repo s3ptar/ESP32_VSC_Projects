@@ -136,29 +136,52 @@ void init_epaper(void){
 *  \exception   none
 *  \return      none
 ***********************************************************************/
-void set_info_epaper(info_epaper_t *infomation){
+void set_info_epaper(const DateTime& dt){
 
     EPD_2IN9B_V3_Init();
     EPD_2IN9B_V3_Clear();
     DEV_Delay_ms(500);
-    char datestring[20];
+    char datestring[128];
     char str_buffer[128];
+    char day_buf[32];
+
+    switch (dt.dayOfTheWeek()){
+        case 1:
+            sprintf(day_buf, "Montag");
+            break;
+        case 2:
+            sprintf(day_buf, "Dienstag");
+            break;
+        case 3:
+            sprintf(day_buf, "Mittwoch");
+            break;
+        case 4:
+            sprintf(day_buf, "Donnerstag");
+            break;
+        case 5:
+            sprintf(day_buf, "Freitag");
+            break;
+        case 6:
+            sprintf(day_buf, "Samstag");
+            break;
+        case 0:
+            sprintf(day_buf, "Sonntag");
+            break;
+        default:
+            sprintf(day_buf, "Bergfest :-)");
+    }
 
     write_to_log(log_lvl_information, "E-Paper" , "show information"); 
 
     snprintf_P(datestring, 
             countof(datestring),
-            //PSTR("%02u/%02u/%04u %02u:%02u:%02u"),
-            PSTR("%02u:%02u "),
-            //infomation.dt.month(),
-            //infomation.dt.day(),
-            //infomation.dt.year(),
-            //infomation->test.hour(),
-            //infomation->dt.minute(),
-            //infomation->dt.second()
-            infomation->hour,
-            infomation->minute
-            );
+            PSTR("%02u.%02u.%04u %s"),
+            dt.month(),
+            dt.day(),
+            dt.year(),
+            day_buf );
+    //Serial.println(datestring);
+
 
     //Create a new image cache named IMAGE_BW and fill it with white
     //UBYTE *BlackImage, *RYImage; // Red or Yellow

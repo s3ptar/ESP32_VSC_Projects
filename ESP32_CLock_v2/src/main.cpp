@@ -82,7 +82,7 @@ double offset;
 double timedelay;
 bool wifiFirstConnected = false;
 const PROGMEM char* ntpServer = "pool.ntp.org";
-
+uint8_t day_of_week_store = 10;
 
 /***********************************************************************
 * local Variable
@@ -256,8 +256,8 @@ void loop(){
 
     static int i = 0;
     static int last, epaper_last_refresh = 0;
-    info_epaper_t information_epaper;
     DateTime dt;
+    
 
     if (wifiFirstConnected) {
         wifiFirstConnected = false;
@@ -290,25 +290,18 @@ void loop(){
         //Serial.println (NTP.getTimeDateString (NTP.getFirstSyncUs ()));
         //Serial.printf ("Free heap: %u\n", ESP.getFreeHeap ());
         dt = DS1307_RTC.now(); 
+        Serial.printf("day is %u\r\n",dt.dayOfTheWeek() ) ;
         led_ring_task(dt);
+        Serial.printf("day is %u\r\n",day_of_week_store ) ;
+        //wenn der tag sich ändert oder beim ersten start
+        if(day_of_week_store != dt.dayOfTheWeek()){
+            day_of_week_store = dt.dayOfTheWeek();
+            set_info_epaper(dt);
+            Serial.printf("day is %u",day_of_week_store ) ;
+        }
         i++;
         
     } 
-    if ((millis () - epaper_last_refresh) > REFRESH_LED_TIME_PERIOD_EPAPER) {
-        epaper_last_refresh = millis ();
-        //Serial.print (i); Serial.print (" ");
-        //ESP_LOGI(tag, "time is on your side");
-        //Serial.println("write to log");
-        //Serial.print ("WiFi is ");
-        //Serial.print (WiFi.isConnected () ? "connected" : "not connected"); Serial.print (". ");
-        //Serial.print ("Uptime: ");
-        //Serial.print (NTP.getUptimeString ()); Serial.print (" since ");
-        //Serial.println (NTP.getTimeDateString (NTP.getFirstSyncUs ()));
-        //Serial.printf ("Free heap: %u\n", ESP.getFreeHeap ());
-        information_epaper.hour = dt.hour();
-        information_epaper.minute = dt.minute();
-        set_info_epaper(&information_epaper);
-        
-    } 
+
   
 }
